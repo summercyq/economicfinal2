@@ -28,7 +28,6 @@ def initialize_quiz_state():
     st.session_state.user_answers = [None] * NUM_QUESTIONS
     st.session_state.results = [None] * NUM_QUESTIONS
     st.session_state.all_answered = False
-    # No need for a separate 'restart_quiz' flag if we call this directly
 
 # Initialize quiz state on first run
 if "questions" not in st.session_state:
@@ -78,5 +77,31 @@ for i, row in questions.iterrows():
             st.success(f"✅ 答對！你選的是 {selected}) {user_answer_text}")
             st.session_state.results[i] = True
         else:
+            # FIX: Use triple quotes for the f-string to handle newlines safely
             st.error(
-                f"❌ 答錯。你選的是 {selected}) {user_answer_text}\n
+                f"""❌ 答錯。你選的是 {selected}) {user_answer_text}
+
+正確答案是 {correct_answer}) {correct_answer_text}"""
+            )
+            st.session_state.results[i] = False
+    else:
+        st.session_state.results[i] = None
+        st.session_state.user_answers[i] = None
+        all_questions_attempted = False # If any question is not answered, set this flag to False
+
+    st.markdown("---") # Separator between questions
+
+# Update all_answered state
+st.session_state.all_answered = all_questions_attempted
+
+# Display results only if all questions have been attempted
+if st.session_state.all_answered and all(res is not None for res in st.session_state.results):
+    score = sum(1 for result in st.session_state.results if result is True)
+    st.markdown("---")
+    st.subheader("📊 答題結果")
+    st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
+
+# Restart button - always available after questions are displayed
+if st.button("🔄 重新開始", key="restart_button_bottom"):
+    initialize_quiz_state() # Call the function to reset and load new questions
+    st.experimental_rerun() # Rerun the app to display the new state
