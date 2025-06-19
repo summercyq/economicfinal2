@@ -8,7 +8,7 @@ st.title("📘 經濟學（下）期末考題庫")
 NUM_QUESTIONS = 20
 
 # Use st.cache_data to load the full question bank only once per session
-@st.cache_data(show_spinner=False) # Added show_spinner=False for cleaner UI
+@st.cache_data(show_spinner=False)
 def load_all_questions():
     """Loads the entire question bank from the CSV."""
     try:
@@ -34,13 +34,20 @@ def initialize_quiz_state():
     st.session_state.user_answers = [None] * NUM_QUESTIONS
     st.session_state.results = [None] * NUM_QUESTIONS
     st.session_state.all_answered = False
-    # This flag is key to ensuring new questions are loaded when rerun
-    st.session_state.quiz_started = True 
+    # Set a flag to indicate the quiz has been initialized or reset
+    st.session_state.quiz_active = True 
 
-# Initialize quiz state on first run or if explicitly told to restart
-# We use 'quiz_started' as a robust flag
-if "quiz_started" not in st.session_state or not st.session_state.quiz_started:
+# Check if the quiz needs to be initialized (first run or reset requested)
+# We use 'quiz_active' to control the main quiz flow
+if "quiz_active" not in st.session_state or not st.session_state.quiz_active:
     initialize_quiz_state()
+
+# --- MODIFICATION START ---
+# Define a callback for the restart button
+def restart_quiz_callback():
+    st.session_state.quiz_active = False # Signal to re-initialize on next run
+    # No st.experimental_rerun() here
+# --- MODIFICATION END ---
 
 questions = st.session_state.questions
 
@@ -89,7 +96,7 @@ for i, row in questions.iterrows():
             st.error(
                 f"""❌ 答錯。你選的是 {selected}) {user_answer_text}
 正確答案是 {correct_answer}) {correct_answer_text}"""
-            ) # Removed an extra newline that might have been problematic
+            )
             st.session_state.results[i] = False
     else:
         st.session_state.results[i] = None
@@ -102,15 +109,15 @@ for i, row in questions.iterrows():
 st.session_state.all_answered = all_questions_attempted
 
 # Display results only if all questions have been attempted AND all results are non-None
-# This ensures we don't show results while questions are still being answered
 if st.session_state.all_answered and all(res is not None for res in st.session_state.results):
     score = sum(1 for result in st.session_state.results if result is True)
     st.markdown("---")
     st.subheader("📊 答題結果")
     st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
 
-# Restart button - always available after questions are displayed
-# When this button is clicked, we force a reload of new questions
-if st.button("🔄 重新開始", key="restart_button_bottom"):
-    initialize_quiz_state() # Reset state and load new questions
-    st.experimental_rerun() # Force Streamlit to rerun the script
+# Restart button - always available
+st.button(
+    "🔄 重新開始",
+    key="restart_button_bottom",
+    on_click=restart_quiz_callback # Use the callback function here
+)
