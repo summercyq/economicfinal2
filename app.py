@@ -48,8 +48,8 @@ if st.session_state.submitted:
     st.subheader("📊 結果")
 
     for i, row in questions.iterrows():
-        correct = row["答案"]
-        user_ans = st.session_state.answers[i]
+        correct = str(row["答案"]).strip().upper()
+        user_ans = str(st.session_state.answers[i]).strip().upper()
 
         correct_text = row.get(correct, "")
         user_text = row.get(user_ans, "")
