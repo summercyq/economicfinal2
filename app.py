@@ -17,22 +17,22 @@ def load_all_questions():
         st.error("錯誤：找不到 '題庫.csv' 文件，請確保文件與應用程式在同一目錄下。")
         st.stop()
 
-# Initialize session state variables
+# Load the full question bank once
 if "all_questions_df" not in st.session_state:
     st.session_state.all_questions_df = load_all_questions()
 
-if "questions" not in st.session_state or st.session_state.restart_quiz:
+# Function to initialize or reset the quiz state
+def initialize_quiz_state():
+    """Resets all quiz-related session state variables and loads new questions."""
     st.session_state.questions = st.session_state.all_questions_df.sample(n=NUM_QUESTIONS, replace=False).reset_index(drop=True)
     st.session_state.user_answers = [None] * NUM_QUESTIONS
-    st.session_state.results = [None] * NUM_QUESTIONS # To store immediate feedback (True/False/None)
-    st.session_state.restart_quiz = False # Reset restart flag
-    st.session_state.all_answered = False # New flag to check if all questions are answered
+    st.session_state.results = [None] * NUM_QUESTIONS
+    st.session_state.all_answered = False
+    # No need for a separate 'restart_quiz' flag if we call this directly
 
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False # This can now be primarily controlled by all_answered
-
-if "restart_quiz" not in st.session_state:
-    st.session_state.restart_quiz = False
+# Initialize quiz state on first run
+if "questions" not in st.session_state:
+    initialize_quiz_state()
 
 questions = st.session_state.questions
 
@@ -79,33 +79,4 @@ for i, row in questions.iterrows():
             st.session_state.results[i] = True
         else:
             st.error(
-                f"❌ 答錯。你選的是 {selected}) {user_answer_text}\n\n正確答案是 {correct_answer}) {correct_answer_text}"
-            )
-            st.session_state.results[i] = False
-    else:
-        st.session_state.results[i] = None
-        st.session_state.user_answers[i] = None
-        all_questions_attempted = False # If any question is not answered, set this flag to False
-
-    st.markdown("---") # Separator between questions
-
-# Update all_answered state
-st.session_state.all_answered = all_questions_attempted
-
-# --- MODIFICATION START ---
-# Display results only if all questions have been attempted
-if st.session_state.all_answered and all(res is not None for res in st.session_state.results):
-    score = sum(1 for result in st.session_state.results if result is True)
-    st.markdown("---")
-    st.subheader("📊 答題結果")
-    st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
-# --- MODIFICATION END ---
-
-# Restart button - always available after questions are displayed
-if st.button("🔄 重新開始", key="restart_button_bottom"):
-    st.session_state.restart_quiz = True
-    st.session_state.user_answers = [None] * NUM_QUESTIONS
-    st.session_state.submitted = False # Reset submitted flag
-    st.session_state.results = [None] * NUM_QUESTIONS
-    st.session_state.all_answered = False # Reset all_answered flag
-    st.experimental_rerun()
+                f"❌ 答錯。你選的是 {selected}) {user_answer_text}\n
