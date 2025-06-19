@@ -4,26 +4,27 @@ import pandas as pd
 st.set_page_config(page_title="經濟學（下）期末考題庫", layout="centered")
 st.title("📘 經濟學（下）期末考題庫")
 
-NUM_QUESTIONS = 5
+NUM_QUESTIONS = 20 # Changed to 20 questions as requested
 
 @st.cache_data
 def load_questions():
     df = pd.read_csv("題庫.csv")
     return df.sample(n=NUM_QUESTIONS).reset_index(drop=True)
 
-# 初始化
-if "submitted" not in st.session_state:
+# Initialize
+if "questions" not in st.session_state:
     st.session_state.questions = load_questions()
-    st.session_state.answers = [None] * NUM_QUESTIONS
+    st.session_state.user_answers = [None] * NUM_QUESTIONS
     st.session_state.submitted = False
+    st.session_state.results = [None] * NUM_QUESTIONS # To store immediate feedback
 
 questions = st.session_state.questions
 
-# 顯示題目
+# Display questions
 for i, row in questions.iterrows():
     st.markdown(f"**Q{i+1}. {row['題目']}**")
 
-    # 自動判斷有幾個選項（支援 A~E）
+    # Automatically determine number of options (supports A~E)
     options = {}
     for opt in ["A", "B", "C", "D", "E"]:
         if pd.notna(row.get(opt)):
@@ -35,38 +36,41 @@ for i, row in questions.iterrows():
         format_func=lambda x: f"{x}) {options[x]}",
         key=f"q{i}"
     )
-    st.session_state.answers[i] = selected
+    
+    # Store the user's selected answer
+    st.session_state.user_answers[i] = selected
 
-# 提交按鈕
-if st.button("✅ 提交答案"):
-    st.session_state.submitted = True
+    # Immediate feedback
+    if selected is not None:
+        correct_answer = str(row["答案"]).strip().upper()
+        user_answer_text = options.get(selected, "")
+        correct_answer_text = options.get(correct_answer, "")
 
-# 顯示結果
-if st.session_state.submitted:
-    score = 0
-    st.markdown("---")
-    st.subheader("📊 結果")
-
-    for i, row in questions.iterrows():
-        correct = str(row["答案"]).strip().upper()
-        user_ans = str(st.session_state.answers[i]).strip().upper()
-
-        correct_text = row.get(correct, "")
-        user_text = row.get(user_ans, "")
-
-        if user_ans == correct:
-            score += 1
-            st.success(f"Q{i+1}: ✅ 答對！你選的是 {user_ans}) {user_text}")
+        if selected == correct_answer:
+            st.success(f"✅ 答對！你選的是 {selected}) {user_answer_text}")
+            st.session_state.results[i] = True
         else:
             st.error(
-                f"Q{i+1}: ❌ 答錯。你選的是 {user_ans}) {user_text}\n\n正確答案是 {correct}) {correct_text}"
+                f"❌ 答錯。你選的是 {selected}) {user_answer_text}\n\n正確答案是 {correct_answer}) {correct_answer_text}"
             )
+            st.session_state.results[i] = False
+    st.markdown("---") # Separator between questions
 
+# This part is for overall score after all questions are answered, not immediately after each
+if st.button("✅ 提交最終結果"): # Changed button text to reflect final submission
+    st.session_state.submitted = True
+
+# Display overall results after final submission
+if st.session_state.submitted:
+    score = sum(1 for result in st.session_state.results if result is True)
+    st.markdown("---")
+    st.subheader("📊 最終得分")
     st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
 
-# 重新出題按鈕
+# Restart button
 if st.button("🔄 重新開始"):
     st.session_state.questions = load_questions()
-    st.session_state.answers = [None] * NUM_QUESTIONS
+    st.session_state.user_answers = [None] * NUM_QUESTIONS
     st.session_state.submitted = False
+    st.session_state.results = [None] * NUM_QUESTIONS
     st.experimental_rerun()
