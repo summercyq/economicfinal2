@@ -7,7 +7,8 @@ st.title("📘 經濟學（下）期末考題庫")
 
 NUM_QUESTIONS = 20
 
-@st.cache_data
+# Use st.cache_data to load the full question bank only once per session
+@st.cache_data(show_spinner=False) # Added show_spinner=False for cleaner UI
 def load_all_questions():
     """Loads the entire question bank from the CSV."""
     try:
@@ -17,20 +18,28 @@ def load_all_questions():
         st.error("錯誤：找不到 '題庫.csv' 文件，請確保文件與應用程式在同一目錄下。")
         st.stop()
 
-# Load the full question bank once
+# Load the full question bank into session state the very first time the app runs
 if "all_questions_df" not in st.session_state:
     st.session_state.all_questions_df = load_all_questions()
 
-# Function to initialize or reset the quiz state
+# Function to initialize or reset the quiz state with new questions
 def initialize_quiz_state():
-    """Resets all quiz-related session state variables and loads new questions."""
+    """Resets all quiz-related session state variables and loads NEW questions."""
+    # Ensure there are enough questions to sample
+    if len(st.session_state.all_questions_df) < NUM_QUESTIONS:
+        st.error(f"錯誤：題庫中只有 {len(st.session_state.all_questions_df)} 題，不足以抽取 {NUM_QUESTIONS} 題。請增加題庫題目數量。")
+        st.stop()
+    
     st.session_state.questions = st.session_state.all_questions_df.sample(n=NUM_QUESTIONS, replace=False).reset_index(drop=True)
     st.session_state.user_answers = [None] * NUM_QUESTIONS
     st.session_state.results = [None] * NUM_QUESTIONS
     st.session_state.all_answered = False
+    # This flag is key to ensuring new questions are loaded when rerun
+    st.session_state.quiz_started = True 
 
-# Initialize quiz state on first run
-if "questions" not in st.session_state:
+# Initialize quiz state on first run or if explicitly told to restart
+# We use 'quiz_started' as a robust flag
+if "quiz_started" not in st.session_state or not st.session_state.quiz_started:
     initialize_quiz_state()
 
 questions = st.session_state.questions
@@ -77,12 +86,10 @@ for i, row in questions.iterrows():
             st.success(f"✅ 答對！你選的是 {selected}) {user_answer_text}")
             st.session_state.results[i] = True
         else:
-            # FIX: Use triple quotes for the f-string to handle newlines safely
             st.error(
                 f"""❌ 答錯。你選的是 {selected}) {user_answer_text}
-
 正確答案是 {correct_answer}) {correct_answer_text}"""
-            )
+            ) # Removed an extra newline that might have been problematic
             st.session_state.results[i] = False
     else:
         st.session_state.results[i] = None
@@ -94,7 +101,8 @@ for i, row in questions.iterrows():
 # Update all_answered state
 st.session_state.all_answered = all_questions_attempted
 
-# Display results only if all questions have been attempted
+# Display results only if all questions have been attempted AND all results are non-None
+# This ensures we don't show results while questions are still being answered
 if st.session_state.all_answered and all(res is not None for res in st.session_state.results):
     score = sum(1 for result in st.session_state.results if result is True)
     st.markdown("---")
@@ -102,6 +110,7 @@ if st.session_state.all_answered and all(res is not None for res in st.session_s
     st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
 
 # Restart button - always available after questions are displayed
+# When this button is clicked, we force a reload of new questions
 if st.button("🔄 重新開始", key="restart_button_bottom"):
-    initialize_quiz_state() # Call the function to reset and load new questions
-    st.experimental_rerun() # Rerun the app to display the new state
+    initialize_quiz_state() # Reset state and load new questions
+    st.experimental_rerun() # Force Streamlit to rerun the script
