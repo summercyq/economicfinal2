@@ -35,12 +35,8 @@ questions = st.session_state.questions
 
 # Display questions
 for i, row in questions.iterrows():
-    # Clean the question string before applying Markdown
-    question_text = str(row['題目']).strip() # Ensure it's a string and remove leading/trailing whitespace
-
-    st.markdown(f"**Q{i+1}. {question_text}**") # Use the cleaned string
-
-    # ... (rest of your code remains the same)
+    question_text = str(row['題目']).strip()
+    st.markdown(f"**Q{i+1}. {question_text}**")
 
     # Automatically determine number of options (supports A~E)
     options_dict = {}
@@ -48,26 +44,32 @@ for i, row in questions.iterrows():
         if pd.notna(row.get(opt_key)):
             options_dict[opt_key] = row[opt_key]
     
-    display_options_keys = ["_請選擇_"] + list(options_dict.keys())
-    display_options_values = {"_請選擇_": "請選擇"}
-    display_options_values.update(options_dict)
+    # --- MODIFICATION START ---
+    # No "請選擇" placeholder option needed
+    display_options_keys = list(options_dict.keys())
+    
+    # Determine the initial index for the radio button
+    initial_index = None # Set to None for no default selection
 
-    initial_index = 0
+    # If the user has previously answered, set the index to their answer
     if st.session_state.user_answers[i] in options_dict:
         try:
             initial_index = display_options_keys.index(st.session_state.user_answers[i])
         except ValueError:
-            initial_index = 0
+            initial_index = None # Fallback if somehow answer is not in current options
 
     selected = st.radio(
-        label="請選擇答案：",
+        label="", # Removed "請選擇答案：" by setting label to an empty string
         options=display_options_keys,
-        format_func=lambda x: f"{x}) {display_options_values[x]}" if x != "_請選擇_" else "請選擇",
+        format_func=lambda x: f"{x}) {options_dict[x]}", # Simplified format_func
         key=f"q{i}",
-        index=initial_index
+        index=initial_index # Use initial_index for pre-selection if applicable
     )
+    # --- MODIFICATION END ---
     
-    if selected != "_請選擇_":
+    # Store the user's selected answer and provide immediate feedback
+    # The selected variable will be None if nothing is chosen yet
+    if selected is not None:
         st.session_state.user_answers[i] = selected
         
         correct_answer = str(row["答案"]).strip().upper()
@@ -83,23 +85,11 @@ for i, row in questions.iterrows():
             )
             st.session_state.results[i] = False
     else:
+        # If nothing is selected, ensure results and user_answers are None
         st.session_state.results[i] = None
         st.session_state.user_answers[i] = None
 
     st.markdown("---")
 
 if st.button("✅ 提交最終結果", key="submit_button"):
-    st.session_state.submitted = True
-
-if st.session_state.submitted:
-    score = sum(1 for result in st.session_state.results if result is True)
-    st.markdown("---")
-    st.subheader("📊 最終得分")
-    st.markdown(f"### 🎯 你總共答對：{score} / {NUM_QUESTIONS}")
-
-if st.button("🔄 重新開始", key="restart_button"):
-    st.session_state.restart_quiz = True
-    st.session_state.user_answers = [None] * NUM_QUESTIONS
-    st.session_state.submitted = False
-    st.session_state.results = [None] * NUM_QUESTIONS
-    st.experimental_rerun()
+    st.session
